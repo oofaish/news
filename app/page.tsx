@@ -4,11 +4,10 @@ export default function Home() {
   return (
     <div className="row">
       <div className="col-6">
-        <h1 className="header">Supabase Auth + Storage</h1>
+        <h1 className="header">News Articles</h1>
         <p className="">
-          Experience our Auth and Storage through a simple profile management
-          example. Create a user profile and upload an avatar image. Fast,
-          simple, secure.
+          My news reader that looks at RSS feeds from NYT, Guardian, WSJ, and
+          FT, with some nice filtering. A complete hack but there you go.
         </p>
       </div>
       <div className="col-6 auth-widget">
