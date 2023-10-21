@@ -93,22 +93,12 @@ export default function ArticleList({ session }: { session: Session | null }) {
   const handleFilterChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     setFilter(e.target.value);
   };
-
-  const maxCreatedAt =
-    articles.length > 0
-      ? new Date(
-          Math.max(
-            ...articles.map((article) =>
-              new Date(article.created_at).getTime(),
-            ),
-          ),
-        ).toLocaleString()
-      : "N/A";
+  if (articles !== null && articles.length > 0) {
+    console.log(articles[0]);
+  }
 
   return (
     <div>
-      <span>Latest download: {maxCreatedAt}</span>
-      <br />
       <select onChange={handleFilterChange} value={filter}>
         {filters.map((filter) => (
           <option key={filter} value={filter}>
