@@ -74,6 +74,11 @@ export default function ArticleRow({ article, onUpdate }: Props) {
     }
   };
 
+  const shortSummary =
+    article.summary !== null && article.summary.length > 150
+      ? article.summary.slice(0, 150) + "..."
+      : article.summary;
+
   return (
     <div className={`article card col-1 ${article.read ? "read" : ""}`}>
       <div className="article-header">
@@ -127,7 +132,7 @@ export default function ArticleRow({ article, onUpdate }: Props) {
         onClick={handleArticleClick}
       >
         <h4>{article.title}</h4>
-        <p>{article.summary}</p>
+        <p>{shortSummary}</p>
       </a>
     </div>
   );
