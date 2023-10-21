@@ -35,7 +35,7 @@ body,
 /* Grid */
 
 .container {
-  width: 90%;
+  width: 98%;
   margin-left: auto;
   margin-right: auto;
 }
@@ -414,7 +414,7 @@ button.primary,
 }
 
 .publication {
-  font-size: 0.8em;
+  font-size: 0.6em;
   color: rgb(163, 27, 160);
 }
 

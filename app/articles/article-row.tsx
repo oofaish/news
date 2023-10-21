@@ -10,7 +10,17 @@ type Props = { article: Article; onUpdate: (updatedArticle: Article) => void };
 
 export default function ArticleRow({ article, onUpdate }: Props) {
   const supabase = createClientComponentClient<Database>();
-  const localDate = new Date(article.published_at).toLocaleString();
+  const options: Intl.DateTimeFormatOptions = {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  };
+  const localDate = new Date(article.published_at).toLocaleString(
+    "en-GB",
+    options,
+  );
 
   const handleArticleClick = async (e: React.MouseEvent) => {
     e.preventDefault();
