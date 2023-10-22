@@ -47,6 +47,7 @@ export default function ArticleRow({ article, onUpdate }: Props) {
       .eq("id", article.id);
     if (error === null) {
       article.score = newScore;
+      article.agent = "USER";
       onUpdate(article);
     }
   };
@@ -59,6 +60,7 @@ export default function ArticleRow({ article, onUpdate }: Props) {
       .eq("id", article.id);
     if (error === null) {
       article.score = newScore;
+      article.agent = "USER";
       onUpdate(article);
     }
   };
