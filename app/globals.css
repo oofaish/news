@@ -414,13 +414,14 @@ button.primary,
 }
 
 .publication {
-  font-size: 0.6em;
+  font-size: 0.7em;
   color: rgb(163, 27, 160);
 }
 
 .article-actions {
   display: flex;
   gap: 5px;
+  padding-bottom: 5px;
 }
 
 .article-actions button {
