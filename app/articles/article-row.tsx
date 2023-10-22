@@ -100,7 +100,11 @@ export default function ArticleRow({ article, onUpdate }: Props) {
           <button
             onClick={handleThumbsUp}
             className={`thumbs-up ${
-              article.score > 0 ? "thumbs-up-active" : ""
+              article.score > 0
+                ? article.agent === "USER"
+                  ? "thumbs-up-active"
+                  : "thumbs-up-active-light"
+                : ""
             }`}
           >
             <svg width={buttonSize} height={buttonSize} viewBox="0 0 24 24">
@@ -110,7 +114,11 @@ export default function ArticleRow({ article, onUpdate }: Props) {
           <button
             onClick={handleThumbsDown}
             className={`thumbs-down ${
-              article.score < 0 ? "thumbs-down-active" : ""
+              article.score < 0
+                ? article.agent === "USER"
+                  ? "thumbs-down-active"
+                  : "thumbs-down-active-light"
+                : ""
             }`}
           >
             <svg width={buttonSize} height={buttonSize} viewBox="0 0 24 24">

@@ -465,14 +465,26 @@ button.primary,
 }
 
 .thumbs-up.thumbs-up-active {
-  background-color: #34a853; /* Green for thumbs up */
+  background-color: rgb(52, 168, 83); /* Green for thumbs up */
   color: white;
 }
 
-.thumbs-down.thumbs-down-active {
-  background-color: #ea4335; /* Red for thumbs down */
+.thumbs-up.thumbs-up-active-light {
+  background-color: rgb(52, 168, 83, 0.5); /* Green for thumbs up */
   color: white;
 }
+
+
+.thumbs-down.thumbs-down-active {
+  background-color: rgb(234, 67, 53); /* Red for thumbs down */
+  color: white;
+}
+
+.thumbs-down.thumbs-down-active-light {
+  background-color: rgba(234, 67, 53, 0.5); /* Red for thumbs down */
+  color: white;
+}
+
 
 .signout {
   margin-top: 100px;
