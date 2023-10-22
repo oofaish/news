@@ -24,6 +24,7 @@ export default function ArticleRow({ article, onUpdate }: Props) {
 
   const handleArticleClick = async (e: React.MouseEvent) => {
     e.preventDefault();
+    window.open(article.link, "_blank", "noopener,noreferrer");
     if (!article.read) {
       const { error } = await supabase
         .from("article")
@@ -35,7 +36,6 @@ export default function ArticleRow({ article, onUpdate }: Props) {
         onUpdate(article);
       }
     }
-    window.open(article.link, "_blank", "noopener,noreferrer");
   };
 
   const handleThumbsUp = async () => {
@@ -136,8 +136,6 @@ export default function ArticleRow({ article, onUpdate }: Props) {
       </div>
       <a
         href={article.link}
-        target="_blank"
-        rel="noopener noreferrer"
         className="article-content"
         onClick={handleArticleClick}
       >
