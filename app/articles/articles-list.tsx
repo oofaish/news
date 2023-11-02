@@ -10,7 +10,12 @@ import ArticleRow from "./article-row";
 export default function ArticleList({ session }: { session: Session | null }) {
   const supabase = createClientComponentClient<Database>();
   const [loading, setLoading] = useState(true);
+  const [allArticles, setAllArticles] = useState<Article[]>([]);
   const [articles, setArticles] = useState<Article[]>([]);
+  const [allPublications, setAllPublications] = useState<string[]>([]);
+  const [selectedPublications, setSelectedPublications] = useState<string[]>(
+    [],
+  );
   const [filter, setFilter] = useState<string>("Read and Unread News");
   const user = session?.user;
   const filters = [
@@ -56,14 +61,21 @@ export default function ArticleList({ session }: { session: Session | null }) {
       let { data, error, status } = await query
         .order("published_at", { ascending: false })
         //.eq('user_id', user?.id)
-        .limit(200);
+        .limit(300);
 
       if (error && status !== 406) {
         throw error;
       }
 
       if (data) {
+        // get unique publication names
+        const publications = Array.from(
+          new Set(data.map((article) => article.publication)),
+        );
+        setSelectedPublications(publications);
+        setAllPublications(publications);
         setArticles(data);
+        setAllArticles(data);
       }
     } catch (error) {
       alert("Error loading articles data!");
@@ -71,6 +83,16 @@ export default function ArticleList({ session }: { session: Session | null }) {
       setLoading(false);
     }
   }, [supabase, filter]);
+
+  const handlePublicationChange = (event: any) => {
+    const selected = Array.from(event.target.selectedOptions).map(
+      (o: any) => o.value,
+    );
+    setSelectedPublications(selected);
+    setArticles(
+      allArticles.filter((article) => selected.includes(article.publication)),
+    );
+  };
 
   useEffect(() => {
     getArticles();
@@ -108,6 +130,17 @@ export default function ArticleList({ session }: { session: Session | null }) {
         {filters.map((filter) => (
           <option key={filter} value={filter}>
             {filter}
+          </option>
+        ))}
+      </select>
+      <select
+        multiple={true}
+        value={selectedPublications}
+        onChange={handlePublicationChange}
+      >
+        {allPublications.map((option) => (
+          <option key={option} value={option}>
+            {option}
           </option>
         ))}
       </select>

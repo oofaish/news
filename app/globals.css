@@ -489,3 +489,8 @@ button.primary,
 .signout {
   margin-top: 100px;
 }
+
+select {
+  margin-top: 0px;
+  margin-left: 10px
+}
