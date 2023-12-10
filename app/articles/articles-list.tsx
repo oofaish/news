@@ -34,13 +34,18 @@ export default function ArticleList({ session }: { session: Session | null }) {
       let query = supabase.from("article").select(`*`);
 
       const twoDaysAgo = new Date();
-      twoDaysAgo.setDate(twoDaysAgo.getDate() - 2);
+      twoDaysAgo.setDate(twoDaysAgo.getDate() - 5);
 
       if (filter === "New News") {
         query = query.eq("archived", false).eq("read", false);
       }
 
-      if (filter !== "Down" && filter !== "Saved" && filter !== "Up") {
+      if (
+        filter !== "Down" &&
+        filter !== "Saved" &&
+        filter !== "Up" &&
+        filter !== "Archived"
+      ) {
         query = query
           .gte("score", 0)
           .gte("published_at", twoDaysAgo.toISOString());
@@ -61,7 +66,7 @@ export default function ArticleList({ session }: { session: Session | null }) {
       let { data, error, status } = await query
         .order("published_at", { ascending: false })
         //.eq('user_id', user?.id)
-        .limit(300);
+        .limit(500);
 
       if (error && status !== 406) {
         throw error;
