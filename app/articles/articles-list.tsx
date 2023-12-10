@@ -107,23 +107,29 @@ export default function ArticleList({ session }: { session: Session | null }) {
           // this filters are not acting as you might expect - but I *think* I like the current
           // behaviour - will have to come and revisit.
         )
-        .filter(
-          (article) =>
-            filter === "Down" || filter === "Saved" || article.score >= 0,
-        )
-        .filter(
-          (article) => filter === "Archived" || article.archived === false,
-        ),
+        .filter((article) => {
+          if (filter === "New News") {
+            return !article.archived && !article.read;
+          } else if (filter === "Read and Unread News") {
+            return !article.archived;
+          } else if (filter === "Saved") {
+            return article.saved;
+          } else if (filter === "Archived") {
+            return article.archived;
+          } else if (filter === "Down") {
+            return article.score < 0;
+          } else if (filter === "Up") {
+            return article.score > 0;
+          } else {
+            return true;
+          }
+        }),
     );
   };
 
   const handleFilterChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     setFilter(e.target.value);
   };
-  if (articles !== null && articles.length > 0) {
-    console.log(articles[0]);
-  }
-
   return (
     <div>
       <select onChange={handleFilterChange} value={filter}>
