@@ -116,7 +116,11 @@ export default function ArticleList({ session }: { session: Session | null }) {
           if (filter === "New News") {
             return !article.archived && !article.read;
           } else if (filter === "Read and Unread News") {
-            return !article.archived;
+            // keep the updated article in unless it's been archive
+            return (
+              !article.archived ||
+              (article.id == updatedArticle.id && !article.archived)
+            );
           } else if (filter === "Saved") {
             return article.saved;
           } else if (filter === "Archived") {
