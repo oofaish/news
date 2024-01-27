@@ -96,7 +96,7 @@ export default function ArticleRow({ article, onUpdate }: Props) {
     <div className={`article card col-1 ${article.read ? "read" : ""}`}>
       <div className="article-header">
         <span className="publication">
-          {article.publication} ({localDate})
+          {article.publication} ({localDate}) {article.agent}-{article.score}
         </span>
         <div className="article-actions">
           <button

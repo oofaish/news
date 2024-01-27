@@ -16,8 +16,6 @@ export default function ArticleList({ session }: { session: Session | null }) {
   const [selectedPublications, setSelectedPublications] = useState<string[]>(
     [],
   );
-  const [filter, setFilter] = useState<string>("Read and Unread News");
-  const user = session?.user;
   const filters = [
     "New News",
     "Read and Unread News",
@@ -26,6 +24,12 @@ export default function ArticleList({ session }: { session: Session | null }) {
     "Down",
     "Up",
   ];
+
+  const sorts = ["Top Score", "Newest"];
+
+  const [filter, setFilter] = useState<string>(filters[1]);
+  const [sort, setSort] = useState<string>(sorts[0]);
+  const user = session?.user;
 
   const getArticles = useCallback(async () => {
     try {
@@ -63,8 +67,14 @@ export default function ArticleList({ session }: { session: Session | null }) {
         query = query.gt("score", 0);
       }
 
+      if (sort === "Top Score") {
+        query = query
+          .order("score", { ascending: false })
+          .order("published_at", { ascending: false });
+      } else {
+        query = query.order("published_at", { ascending: false });
+      }
       let { data, error, status } = await query
-        .order("published_at", { ascending: false })
         //.eq('user_id', user?.id)
         .limit(500);
 
@@ -87,7 +97,7 @@ export default function ArticleList({ session }: { session: Session | null }) {
     } finally {
       setLoading(false);
     }
-  }, [supabase, filter]);
+  }, [supabase, filter, sort]);
 
   const handlePublicationChange = (event: any) => {
     const selected = Array.from(event.target.selectedOptions).map(
@@ -139,6 +149,11 @@ export default function ArticleList({ session }: { session: Session | null }) {
   const handleFilterChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     setFilter(e.target.value);
   };
+
+  const handleSortChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    setSort(e.target.value);
+  };
+
   return (
     <div>
       <select onChange={handleFilterChange} value={filter}>
@@ -148,6 +163,14 @@ export default function ArticleList({ session }: { session: Session | null }) {
           </option>
         ))}
       </select>
+      <select onChange={handleSortChange} value={sort}>
+        {sorts.map((sort) => (
+          <option key={sort} value={sort}>
+            {sort}
+          </option>
+        ))}
+      </select>
+
       <select
         multiple={true}
         value={selectedPublications}
