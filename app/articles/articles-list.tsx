@@ -87,9 +87,18 @@ export default function ArticleList({ session }: { session: Session | null }) {
         const publications = Array.from(
           new Set(data.map((article) => article.publication)),
         );
-        setSelectedPublications(publications);
+        // select publications not Guardian )copy first
+
+        const initialSelection = publications.filter(
+          (publication) => publication !== "Guardian",
+        );
+        setSelectedPublications(initialSelection);
         setAllPublications(publications);
-        setArticles(data);
+        setArticles(
+          data.filter((article) =>
+            initialSelection.includes(article.publication),
+          ),
+        );
         setAllArticles(data);
       }
     } catch (error) {
