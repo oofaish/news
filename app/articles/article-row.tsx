@@ -40,7 +40,7 @@ export default function ArticleRow({ article, onUpdate }: Props) {
   };
 
   const handleThumbsUp = async () => {
-    const newScore = Math.min(20, article.score + 20);
+    const newScore = article.score >= 0 ? 20 : 0;
     const { error } = await supabase
       .from("article")
       .update({ score: newScore, agent: "USER" })
@@ -53,7 +53,7 @@ export default function ArticleRow({ article, onUpdate }: Props) {
   };
 
   const handleThumbsDown = async () => {
-    const newScore = Math.max(-20, article.score - 20);
+    const newScore = article.score <= 0 ? -20 : 0;
     const { error } = await supabase
       .from("article")
       .update({ score: newScore, agent: "USER" })

@@ -14,7 +14,13 @@ export default function ArticleList({ session }: { session: Session | null }) {
   const [articles, setArticles] = useState<Article[]>([]);
   const [allPublications, setAllPublications] = useState<string[]>([]);
   const [selectedPublications, setSelectedPublications] = useState<string[]>(
-    [],
+    () => {
+      const saved =
+        typeof window !== "undefined"
+          ? localStorage.getItem("selectedPublications")
+          : null;
+      return saved !== null ? JSON.parse(saved) : [];
+    },
   );
   const filters = [
     "New News",
@@ -27,8 +33,38 @@ export default function ArticleList({ session }: { session: Session | null }) {
 
   const sorts = ["Top Score", "Newest"];
 
-  const [filter, setFilter] = useState<string>(filters[1]);
-  const [sort, setSort] = useState<string>(sorts[0]);
+  const [filter, setFilter] = useState<string>(() => {
+    const saved =
+      typeof window !== "undefined" ? localStorage.getItem("filter") : null;
+    return saved !== null ? JSON.parse(saved) : filters[1];
+  });
+  const [sort, setSort] = useState<string>(() => {
+    const saved =
+      typeof window !== "undefined" ? localStorage.getItem("sort") : null;
+    return saved !== null ? JSON.parse(saved) : sorts[0];
+  });
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      localStorage.setItem("sort", JSON.stringify(sort));
+    }
+  }, [sort]);
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      localStorage.setItem("filter", JSON.stringify(filter));
+    }
+  }, [filter]);
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      localStorage.setItem(
+        "selectedPublications",
+        JSON.stringify(selectedPublications),
+      );
+    }
+  }, [selectedPublications]);
+
   const user = session?.user;
 
   const getArticles = useCallback(async () => {
@@ -87,18 +123,18 @@ export default function ArticleList({ session }: { session: Session | null }) {
         const publications = Array.from(
           new Set(data.map((article) => article.publication)),
         );
-        // select publications not Guardian )copy first
-
-        const initialSelection = publications.filter(
-          (publication) => publication !== "Guardian",
-        );
-        setSelectedPublications(initialSelection);
         setAllPublications(publications);
+
         setArticles(
-          data.filter((article) =>
-            initialSelection.includes(article.publication),
+          data.filter(
+            (article) =>
+              selectedPublications.length == 0 ||
+              selectedPublications.includes(article.publication),
           ),
         );
+        if (selectedPublications.length == 0) {
+          setSelectedPublications(publications);
+        }
         setAllArticles(data);
       }
     } catch (error) {
@@ -106,7 +142,7 @@ export default function ArticleList({ session }: { session: Session | null }) {
     } finally {
       setLoading(false);
     }
-  }, [supabase, filter, sort]);
+  }, [supabase, filter, sort, selectedPublications]);
 
   const handlePublicationChange = (event: any) => {
     const selected = Array.from(event.target.selectedOptions).map(
@@ -141,13 +177,13 @@ export default function ArticleList({ session }: { session: Session | null }) {
               (article.id == updatedArticle.id && !article.archived)
             );
           } else if (filter === "Saved") {
-            return article.saved;
+            return true;
           } else if (filter === "Archived") {
-            return article.archived;
+            return true;
           } else if (filter === "Down") {
-            return article.score < 0;
+            return article.score < 20;
           } else if (filter === "Up") {
-            return article.score > 0;
+            return article.score > -20;
           } else {
             return true;
           }
