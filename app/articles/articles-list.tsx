@@ -26,7 +26,8 @@ let getQuery = (supabase: SupabaseClient, sort: string, filter: string) => {
     filter !== "Up" &&
     filter !== "Archived"
   ) {
-    query = query.gte("score", 0).gte("published_at", cutOff.toISOString());
+    // show some of the negative scores too - just to see what we are missing out on
+    query = query.gte("score", -8).gte("published_at", cutOff.toISOString());
   }
 
   if (filter === "Read and Unread News") {
@@ -57,7 +58,6 @@ export default function ArticleList({ session }: { session: Session | null }) {
 
   const [loading, setLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(0);
-  const [initialLoadDone, setInitialLoadDone] = useState(false);
   const [allArticles, setAllArticles] = useState<Article[]>([]);
   const [articles, setArticles] = useState<Article[]>([]);
   const [allPublications, setAllPublications] = useState<string[]>([]);
@@ -159,10 +159,12 @@ export default function ArticleList({ session }: { session: Session | null }) {
   };
 
   const handleFilterChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    setArticles([]);
     setFilter(e.target.value);
   };
 
   const handleSortChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    setArticles([]);
     setSort(e.target.value);
   };
 
@@ -228,32 +230,36 @@ export default function ArticleList({ session }: { session: Session | null }) {
   ]);
 
   useEffect(() => {
-    if (!initialLoadDone) {
-      loadMoreArticles().then(() => setInitialLoadDone(true));
-    }
-    // no dependencies - is that same as empty?
-  });
+    setCurrentPage(0);
+  }, [sort, filter, user]);
 
   useEffect(() => {
-    const loadMoreTrigger = document.querySelector(".load-more-trigger");
-    if (initialLoadDone) {
-      if (loadMoreTrigger) {
-        const observer = new IntersectionObserver(
-          (entries) => {
-            if (entries[0].isIntersecting) {
-              loadMoreArticles();
-            }
-          },
-          { threshold: 1.0 },
-        );
-
-        observer.observe(loadMoreTrigger);
-
-        // Clean up function
-        return () => observer.disconnect();
-      }
+    if (currentPage === 0) {
+      // setArticles([]);
+      loadMoreArticles();
     }
-  }, [loadMoreArticles, initialLoadDone]);
+  }, [currentPage]); //, initialLoadDone]);
+
+  // useEffect(() => {
+  //   const loadMoreTrigger = document.querySelector(".load-more-trigger");
+  //   if (initialLoadDone) {
+  //     if (loadMoreTrigger) {
+  //       const observer = new IntersectionObserver(
+  //         (entries) => {
+  //           if (entries[0].isIntersecting) {
+  //             loadMoreArticles();
+  //           }
+  //         },
+  //         { threshold: 1.0 },
+  //       );
+
+  //       observer.observe(loadMoreTrigger);
+
+  //       // Clean up function
+  //       return () => observer.disconnect();
+  //     }
+  //   }
+  // }, [loadMoreArticles]);
 
   return (
     <div>
@@ -305,7 +311,7 @@ export default function ArticleList({ session }: { session: Session | null }) {
           {loading ? "Loading..." : "Load More"}
         </button>
       </div>
-      <div className="load-more-trigger"></div>
+      {/* <div className="load-more-trigger"></div> */}
     </div>
   );
 }
