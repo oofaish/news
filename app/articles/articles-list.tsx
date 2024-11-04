@@ -8,7 +8,7 @@ import {
 } from "@supabase/auth-helpers-nextjs";
 import ArticleRow from "./article-row";
 
-const DEFAULT_ARTICLES_PER_PAGE = 50;
+const DEFAULT_ARTICLES_PER_PAGE = 100;
 
 let getQuery = (supabase: SupabaseClient, sort: string, filter: string) => {
   let query = supabase.from("article").select(`*`);
