@@ -1,6 +1,5 @@
 "use client";
-
-import { createContext, useContext, useEffect } from "react";
+import { createContext, useContext, useEffect, useState } from "react";
 import {
   Session,
   SupabaseClient,
@@ -20,56 +19,67 @@ const Context = createContext<SupabaseContext | undefined>(undefined);
 
 export default function SupabaseProvider({
   children,
-  session,
+  session: initialSession,
 }: {
   children: React.ReactNode;
   session: MaybeSession;
 }) {
   const supabase = createClientComponentClient<Database>();
   const router = useRouter();
+  const [session, setSession] = useState<MaybeSession>(initialSession);
 
   useEffect(() => {
+    // Check and refresh session on mount
+    const refreshSession = async () => {
+      const {
+        data: { session: currentSession },
+      } = await supabase.auth.getSession();
+      setSession(currentSession);
+    };
+
+    refreshSession();
+
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((_, _session) => {
-      if (_session?.access_token !== session?.access_token) {
+    } = supabase.auth.onAuthStateChange(async (event, newSession) => {
+      setSession(newSession);
+
+      if (event === "SIGNED_OUT") {
+        router.push("/");
+      } else if (event === "SIGNED_IN" || event === "TOKEN_REFRESHED") {
+        setSession(newSession);
         router.refresh();
       }
     });
 
+    // Set up periodic session refresh (every 10 minutes)
+    const intervalId = setInterval(refreshSession, 10 * 60 * 1000);
+
     return () => {
       subscription.unsubscribe();
+      clearInterval(intervalId);
     };
-  }, [router, supabase, session]);
+  }, [router, supabase]);
 
   return (
     <Context.Provider value={{ supabase, session }}>
-      <>{children}</>
+      {children}
     </Context.Provider>
   );
 }
 
-export const useSupabase = <
-  Database = any,
-  SchemaName extends string & keyof Database = "public" extends keyof Database
-    ? "public"
-    : string & keyof Database,
->() => {
-  let context = useContext(Context);
-
+export const useSupabase = () => {
+  const context = useContext(Context);
   if (context === undefined) {
     throw new Error("useSupabase must be used inside SupabaseProvider");
   }
-
-  return context.supabase as SupabaseClient<Database, SchemaName>;
+  return context.supabase;
 };
 
 export const useSession = () => {
-  let context = useContext(Context);
-
+  const context = useContext(Context);
   if (context === undefined) {
     throw new Error("useSession must be used inside SupabaseProvider");
   }
-
   return context.session;
 };
