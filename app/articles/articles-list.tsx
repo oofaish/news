@@ -113,8 +113,6 @@ export default function ArticleList({ session }: { session: Session | null }) {
     }
   }, [selectedPublications]);
 
-  const user = session?.user;
-
   const handlePublicationChange = (event: any) => {
     const selected = Array.from(event.target.selectedOptions).map(
       (o: any) => o.value,
@@ -230,15 +228,16 @@ export default function ArticleList({ session }: { session: Session | null }) {
   ]);
 
   useEffect(() => {
+    setArticles([]);
     setCurrentPage(0);
-  }, [sort, filter, user]);
+  }, [sort, filter]);
 
   useEffect(() => {
     if (currentPage === 0) {
       // setArticles([]);
       loadMoreArticles();
     }
-  }, [currentPage, loadMoreArticles]); //, initialLoadDone]);
+  }, [currentPage]); //, initialLoadDone]);
 
   const refreshPage = () => {
     setArticles([]);
