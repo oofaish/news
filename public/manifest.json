@@ -2,7 +2,7 @@
     "name": "News Feed",
     "short_name": "NewsFeed",
     "background_color": "#fff",
-    "display": "minimal-ui",
+    "display": "standalone",
     "orientation": "portrait",
     "scope": "/",
     "start_url": "/",
@@ -27,5 +27,5 @@
             "sizes": "512x512",
             "type": "image/png"
         }
-    ]
+    ],
 }
