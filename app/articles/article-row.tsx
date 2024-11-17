@@ -88,8 +88,8 @@ export default function ArticleRow({ article, onUpdate }: Props) {
   };
 
   const shortSummary =
-    article.summary !== null && article.summary.length > 500
-      ? article.summary.slice(0, 500) + "..."
+    article.summary !== null && article.summary.length > 5000
+      ? article.summary.slice(0, 5000) + "..."
       : article.summary;
 
   return (

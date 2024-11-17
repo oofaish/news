@@ -238,7 +238,13 @@ export default function ArticleList({ session }: { session: Session | null }) {
       // setArticles([]);
       loadMoreArticles();
     }
-  }, [currentPage]); //, initialLoadDone]);
+  }, [currentPage, loadMoreArticles]); //, initialLoadDone]);
+
+  const refreshPage = () => {
+    setArticles([]);
+    setCurrentPage(0);
+    loadMoreArticles();
+  };
 
   // useEffect(() => {
   //   const loadMoreTrigger = document.querySelector(".load-more-trigger");
@@ -290,11 +296,9 @@ export default function ArticleList({ session }: { session: Session | null }) {
             </option>
           ))}
         </select>
-        <form action="/auth/signout" method="post">
-          <button className="signout button" type="submit">
-            Sign out
-          </button>
-        </form>
+        <button className="refresh button" onClick={refreshPage}>
+          Refresh
+        </button>
       </div>
 
       <div className="articles-list">
@@ -310,6 +314,11 @@ export default function ArticleList({ session }: { session: Session | null }) {
         <button onClick={loadMoreArticles} disabled={loading}>
           {loading ? "Loading..." : "Load More"}
         </button>
+        <form action="/auth/signout" method="post">
+          <button className="signout button" type="submit">
+            Sign out
+          </button>
+        </form>
       </div>
       {/* <div className="load-more-trigger"></div> */}
     </div>
