@@ -395,7 +395,7 @@ button.primary,
 
 
 .article p {
-  font-size: 0.7em;
+  font-size: 0.9em;
   padding: 0;
   margin: 0
 }
@@ -491,7 +491,7 @@ button.primary,
   justify-content: flex-start;
 }
 
-select, .signout {
+select, .signout, .refresh {
   margin-top: 0px;
   margin-left: 10px
 }
