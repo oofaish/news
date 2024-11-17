@@ -2,7 +2,13 @@ import "./globals.css";
 
 export const metadata = {
   title: "Articles",
-  description: "RSS Feeds from Guradian, FT, WSJ and NYT",
+  description: "RSS Feeds from Guradian, FT, etc",
+  themeColor: "#000000",
+  icons: {
+    icon: "/icons/icon-192x192.png",
+    apple: "/icons/icon-192x192.png",
+  },
+  manifest: "/manifest.json",
 };
 
 import { headers, cookies } from "next/headers";
