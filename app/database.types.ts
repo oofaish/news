@@ -25,6 +25,10 @@ export interface Database {
           reason: string | null;
           saved: boolean;
           score: number;
+          ai_score2: number;
+          tags_mood: Json | null;
+          tags_scope: Json | null;
+          tags_topic: Json | null;
           summary: string | null;
           tags: Json | null;
           title: string;
@@ -46,6 +50,10 @@ export interface Database {
           reason?: string | null;
           saved?: boolean;
           score?: number;
+          ai_score2?: number;
+          tags_mood?: Json | null;
+          tags_scope?: Json | null;
+          tags_topic?: Json | null;
           summary?: string | null;
           tags?: Json | null;
           title: string;
@@ -67,6 +75,10 @@ export interface Database {
           reason?: string | null;
           saved?: boolean;
           score?: number;
+          ai_score2?: number;
+          tags_mood?: Json | null;
+          tags_scope?: Json | null;
+          tags_topic?: Json | null;
           summary?: string | null;
           tags?: Json | null;
           title?: string;

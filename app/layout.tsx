@@ -2,7 +2,7 @@ import "./globals.css";
 
 export const metadata = {
   title: "Articles",
-  description: "RSS Feeds from Guradian, FT, etc",
+  description: "RSS Feeds Reader with LLM based Filtering",
   icons: {
     icon: "/icons/icon-192x192.png",
     apple: "/icons/icon-192x192.png",

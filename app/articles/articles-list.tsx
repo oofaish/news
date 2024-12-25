@@ -92,6 +92,28 @@ export default function ArticleList({ session }: { session: Session | null }) {
     return saved !== null ? JSON.parse(saved) : sorts[0];
   });
 
+  const [selectedTagsScope, setSelectedTagsScope] = useState<string[]>(() => {
+    const saved =
+      typeof window !== "undefined"
+        ? localStorage.getItem("selectedTagsScope")
+        : null;
+    return saved !== null ? JSON.parse(saved) : [];
+  });
+  const [selectedTagsMood, setSelectedTagsMood] = useState<string[]>(() => {
+    const saved =
+      typeof window !== "undefined"
+        ? localStorage.getItem("selectedTagsMood")
+        : null;
+    return saved !== null ? JSON.parse(saved) : [];
+  });
+  const [selectedTagsTopic, setSelectedTagsTopic] = useState<string[]>(() => {
+    const saved =
+      typeof window !== "undefined"
+        ? localStorage.getItem("selectedTagsTopic")
+        : null;
+    return saved !== null ? JSON.parse(saved) : [];
+  });
+
   useEffect(() => {
     if (typeof window !== "undefined") {
       localStorage.setItem("sort", JSON.stringify(sort));
@@ -112,6 +134,33 @@ export default function ArticleList({ session }: { session: Session | null }) {
       );
     }
   }, [selectedPublications]);
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      localStorage.setItem(
+        "selectedTagsScope",
+        JSON.stringify(selectedTagsScope),
+      );
+    }
+  }, [selectedTagsScope]);
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      localStorage.setItem(
+        "selectedTagsMood",
+        JSON.stringify(selectedTagsMood),
+      );
+    }
+  }, [selectedTagsMood]);
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      localStorage.setItem(
+        "selectedTagsTopic",
+        JSON.stringify(selectedTagsTopic),
+      );
+    }
+  }, [selectedTagsTopic]);
 
   const handlePublicationChange = (event: any) => {
     const selected = Array.from(event.target.selectedOptions).map(
@@ -146,9 +195,9 @@ export default function ArticleList({ session }: { session: Session | null }) {
           } else if (filter === "Archived") {
             return true;
           } else if (filter === "Down") {
-            return article.score < 20;
+            return article.score < 10;
           } else if (filter === "Up") {
-            return article.score > -20;
+            return article.score > -10;
           } else {
             return true;
           }
@@ -228,6 +277,7 @@ export default function ArticleList({ session }: { session: Session | null }) {
   ]);
 
   useEffect(() => {
+    // added this setArticle as without it we end up duplicating articles.
     setArticles([]);
     setCurrentPage(0);
   }, [sort, filter]);
@@ -245,26 +295,53 @@ export default function ArticleList({ session }: { session: Session | null }) {
     loadMoreArticles();
   };
 
-  // useEffect(() => {
-  //   const loadMoreTrigger = document.querySelector(".load-more-trigger");
-  //   if (initialLoadDone) {
-  //     if (loadMoreTrigger) {
-  //       const observer = new IntersectionObserver(
-  //         (entries) => {
-  //           if (entries[0].isIntersecting) {
-  //             loadMoreArticles();
-  //           }
-  //         },
-  //         { threshold: 1.0 },
-  //       );
+  const uniqueTagsScope = Array.from(
+    new Set(allArticles.flatMap((article) => article.tags_scope || [])),
+  );
+  const uniqueTagsMood = Array.from(
+    new Set(allArticles.flatMap((article) => article.tags_mood || [])),
+  );
+  const uniqueTagsTopic = Array.from(
+    new Set(allArticles.flatMap((article) => article.tags_topic || [])),
+  );
 
-  //       observer.observe(loadMoreTrigger);
+  useEffect(() => {
+    setArticles(
+      allArticles.filter((article) => {
+        const matchesScope =
+          selectedTagsScope.length === 0 ||
+          selectedTagsScope.some((tag) => article.tags_scope?.includes(tag));
+        const matchesMood =
+          selectedTagsMood.length === 0 ||
+          selectedTagsMood.some((tag) => article.tags_mood?.includes(tag));
+        const matchesTopic =
+          selectedTagsTopic.length === 0 ||
+          selectedTagsTopic.some((tag) => article.tags_topic?.includes(tag));
+        return matchesScope && matchesMood && matchesTopic;
+      }),
+    );
+  }, [selectedTagsScope, selectedTagsMood, selectedTagsTopic, allArticles]);
 
-  //       // Clean up function
-  //       return () => observer.disconnect();
-  //     }
-  //   }
-  // }, [loadMoreArticles]);
+  const handleTagsScopeChange = (event: any) => {
+    const selected = Array.from(event.target.selectedOptions).map(
+      (o: any) => o.value,
+    );
+    setSelectedTagsScope(selected);
+  };
+
+  const handleTagsMoodChange = (event: any) => {
+    const selected = Array.from(event.target.selectedOptions).map(
+      (o: any) => o.value,
+    );
+    setSelectedTagsMood(selected);
+  };
+
+  const handleTagsTopicChange = (event: any) => {
+    const selected = Array.from(event.target.selectedOptions).map(
+      (o: any) => o.value,
+    );
+    setSelectedTagsTopic(selected);
+  };
 
   return (
     <div>
@@ -299,7 +376,41 @@ export default function ArticleList({ session }: { session: Session | null }) {
           Refresh
         </button>
       </div>
-
+      <div className="filters">
+        <select
+          multiple
+          value={selectedTagsScope}
+          onChange={handleTagsScopeChange}
+        >
+          {uniqueTagsScope.map((tag) => (
+            <option key={tag} value={tag}>
+              {tag}
+            </option>
+          ))}
+        </select>
+        <select
+          multiple
+          value={selectedTagsMood}
+          onChange={handleTagsMoodChange}
+        >
+          {uniqueTagsMood.map((tag) => (
+            <option key={tag} value={tag}>
+              {tag}
+            </option>
+          ))}
+        </select>
+        <select
+          multiple
+          value={selectedTagsTopic}
+          onChange={handleTagsTopicChange}
+        >
+          {uniqueTagsTopic.map((tag) => (
+            <option key={tag} value={tag}>
+              {tag}
+            </option>
+          ))}
+        </select>
+      </div>
       <div className="articles-list">
         {articles.map((article) => (
           <ArticleRow
