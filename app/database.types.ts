@@ -25,8 +25,12 @@ export interface Database {
           reason: string | null;
           saved: boolean;
           score: number;
+          ai_score2: number;
+          tags_mood: string[] | null;
+          tags_scope: string[] | null;
+          tags_topic: string[] | null;
           summary: string | null;
-          tags: Json | null;
+          tags: string[] | null;
           title: string;
           updated_at: string;
           user_id: string;
@@ -46,8 +50,12 @@ export interface Database {
           reason?: string | null;
           saved?: boolean;
           score?: number;
+          ai_score2?: number;
+          tags_mood?: string[] | null;
+          tags_scope?: string[] | null;
+          tags_topic?: string[] | null;
           summary?: string | null;
-          tags?: Json | null;
+          tags?: string[] | null;
           title: string;
           updated_at?: string;
           user_id?: string;
@@ -67,6 +75,10 @@ export interface Database {
           reason?: string | null;
           saved?: boolean;
           score?: number;
+          ai_score2?: number;
+          tags_mood?: string[] | null;
+          tags_scope?: string[] | null;
+          tags_topic?: string[] | null;
           summary?: string | null;
           tags?: Json | null;
           title?: string;
@@ -123,7 +135,11 @@ export interface Database {
       };
     };
     Views: {
-      [_ in never]: never;
+      recent_publications: {
+        Row: {
+          publication: string;
+        };
+      };
     };
     Functions: {
       update_articles_with_agent_results: {

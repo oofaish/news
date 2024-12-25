@@ -40,7 +40,7 @@ export default function ArticleRow({ article, onUpdate }: Props) {
   };
 
   const handleThumbsUp = async () => {
-    const newScore = article.score >= 0 ? 20 : 0;
+    const newScore = article.score >= 0 ? 10 : 0;
     const { error } = await supabase
       .from("article")
       .update({ score: newScore, agent: "USER" })
@@ -53,7 +53,7 @@ export default function ArticleRow({ article, onUpdate }: Props) {
   };
 
   const handleThumbsDown = async () => {
-    const newScore = article.score <= 0 ? -20 : 0;
+    const newScore = article.score <= 0 ? -10 : 0;
     const { error } = await supabase
       .from("article")
       .update({ score: newScore, agent: "USER" })
@@ -96,7 +96,8 @@ export default function ArticleRow({ article, onUpdate }: Props) {
     <div className={`article card col-1 ${article.read ? "read" : ""}`}>
       <div className="article-header">
         <span className="publication">
-          {article.publication} ({localDate}) {article.agent}-{article.score}
+          {article.publication} ({localDate}) AI: {article.ai_score2}{" "}
+          {article.agent === "USER" ? "USER: " + article.score : ""}
         </span>
         <div className="article-actions">
           <button
@@ -124,7 +125,7 @@ export default function ArticleRow({ article, onUpdate }: Props) {
             }`}
           >
             <svg width={buttonSize} height={buttonSize} viewBox="0 0 24 24">
-              <path d="M15 3H6c-.83 0-1.54.5-1.84 1.22l-3.02 7.05c-.09.23-.14.47-.14.73v2c0 1.1.9 2 2 2h6.31l-.95 4.57-.03.32c0 .41.17.79.44 1.06L9.83 23l6.59-6.59c.36-.36.58-.86.58-1.41V5c0-1.1-.9-2-2-2zm4 0v12h4V3h-4z"></path>
+              <path d="M15 3H6c-.83 0-1.54.5-1.84 1.22l-3.02 7.05c-.09.23-.14.47-.14.73v2c0 1.1.9 2 2 2h6.31l.95-4.57-.03-.32c0 .41.17.79.44 1.06L9.83 23l6.59-6.59c.36-.36.58-.86.58-1.41V5c0-1.1-.9-2-2-2zm4 0v12h4V3h-4z"></path>
             </svg>
           </button>
           <button
@@ -145,6 +146,51 @@ export default function ArticleRow({ article, onUpdate }: Props) {
           </button>
         </div>
       </div>
+      <div className="article-tags">
+        {article.tags_scope?.map((tag, index) => (
+          <span key={`scope-${index}`} className="tag tag-scope">
+            {tag}
+          </span>
+        ))}
+        {article.tags_mood?.map((tag, index) => {
+          let moodColor = "#99ccff"; // Default blue
+          if (tag.toLowerCase() === "upbeat") {
+            moodColor = "#800080"; // Purple
+          } else if (tag.toLowerCase() === "heavy") {
+            moodColor = "#000000"; // Black
+          }
+          return (
+            <span
+              key={`mood-${index}`}
+              className="tag"
+              style={{ backgroundColor: moodColor }}
+            >
+              {tag}
+            </span>
+          );
+        })}
+        {article.tags_topic?.map((tag, index) => (
+          <span key={`topic-${index}`} className="tag tag-topic">
+            {tag}
+          </span>
+        ))}
+      </div>
+      <style jsx>{`
+        .tag {
+          display: inline-block;
+          padding: 4px 8px;
+          margin: 2px;
+          border-radius: 4px;
+          font-size: 12px;
+          color: white;
+        }
+        .tag-scope {
+          background-color: rgb(234, 67, 53); /* Red */
+        }
+        .tag-topic {
+          background-color: rgb(52, 168, 83); /* Green */
+        }
+      `}</style>
       <a
         href={article.link}
         className="article-content"

@@ -10,7 +10,12 @@ import ArticleRow from "./article-row";
 
 const DEFAULT_ARTICLES_PER_PAGE = 100;
 
-let getQuery = (supabase: SupabaseClient, sort: string, filter: string) => {
+let getQuery = (
+  supabase: SupabaseClient,
+  sort: string,
+  filter: string,
+  publicationFilter: string[],
+) => {
   let query = supabase.from("article").select(`*`);
 
   const cutOff = new Date();
@@ -27,7 +32,7 @@ let getQuery = (supabase: SupabaseClient, sort: string, filter: string) => {
     filter !== "Archived"
   ) {
     // show some of the negative scores too - just to see what we are missing out on
-    query = query.gte("score", -8).gte("published_at", cutOff.toISOString());
+    query = query.gte("score", -6).gte("published_at", cutOff.toISOString());
   }
 
   if (filter === "Read and Unread News") {
@@ -40,6 +45,10 @@ let getQuery = (supabase: SupabaseClient, sort: string, filter: string) => {
     query = query.lt("score", 0);
   } else if (filter === "Up") {
     query = query.gt("score", 0);
+  }
+
+  if (publicationFilter && publicationFilter.length > 0) {
+    query = query.in("publication", publicationFilter);
   }
 
   if (sort === "Top Score") {
@@ -92,6 +101,54 @@ export default function ArticleList({ session }: { session: Session | null }) {
     return saved !== null ? JSON.parse(saved) : sorts[0];
   });
 
+  const [selectedTagsScope, setSelectedTagsScope] = useState<string[]>(() => {
+    const saved =
+      typeof window !== "undefined"
+        ? localStorage.getItem("selectedTagsScope")
+        : null;
+    return saved !== null ? JSON.parse(saved) : [];
+  });
+  const [selectedTagsMood, setSelectedTagsMood] = useState<string[]>(() => {
+    const saved =
+      typeof window !== "undefined"
+        ? localStorage.getItem("selectedTagsMood")
+        : null;
+    return saved !== null ? JSON.parse(saved) : [];
+  });
+  const [selectedTagsTopic, setSelectedTagsTopic] = useState<string[]>(() => {
+    const saved =
+      typeof window !== "undefined"
+        ? localStorage.getItem("selectedTagsTopic")
+        : null;
+    return saved !== null ? JSON.parse(saved) : [];
+  });
+
+  useEffect(() => {
+    const fetchPublications = async () => {
+      try {
+        const { data, error } = await supabase
+          .from("recent_publications")
+          .select("publication");
+
+        if (error) throw error;
+
+        if (data) {
+          const publications = data.map((item: any) => item["publication"]);
+          setAllPublications(publications);
+
+          // If no publications are selected, select all by default
+          if (selectedPublications.length === 0) {
+            setSelectedPublications(publications);
+          }
+        }
+      } catch (error) {
+        console.error("Error fetching publications:", error);
+      }
+    };
+
+    fetchPublications();
+  }, [supabase]);
+
   useEffect(() => {
     if (typeof window !== "undefined") {
       localStorage.setItem("sort", JSON.stringify(sort));
@@ -113,14 +170,42 @@ export default function ArticleList({ session }: { session: Session | null }) {
     }
   }, [selectedPublications]);
 
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      localStorage.setItem(
+        "selectedTagsScope",
+        JSON.stringify(selectedTagsScope),
+      );
+    }
+  }, [selectedTagsScope]);
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      localStorage.setItem(
+        "selectedTagsMood",
+        JSON.stringify(selectedTagsMood),
+      );
+    }
+  }, [selectedTagsMood]);
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      localStorage.setItem(
+        "selectedTagsTopic",
+        JSON.stringify(selectedTagsTopic),
+      );
+    }
+  }, [selectedTagsTopic]);
+
   const handlePublicationChange = (event: any) => {
     const selected = Array.from(event.target.selectedOptions).map(
       (o: any) => o.value,
     );
+    setArticles([]);
     setSelectedPublications(selected);
-    setArticles(
-      allArticles.filter((article) => selected.includes(article.publication)),
-    );
+    // setArticles(
+    //   allArticles.filter((article) => selected.includes(article.publication)),
+    // );
   };
 
   const updateArticle = (updatedArticle: Article) => {
@@ -146,9 +231,9 @@ export default function ArticleList({ session }: { session: Session | null }) {
           } else if (filter === "Archived") {
             return true;
           } else if (filter === "Down") {
-            return article.score < 20;
+            return article.score < 10;
           } else if (filter === "Up") {
-            return article.score > -20;
+            return article.score > -10;
           } else {
             return true;
           }
@@ -169,7 +254,7 @@ export default function ArticleList({ session }: { session: Session | null }) {
   const loadMoreArticles = useCallback(async () => {
     try {
       setLoading(true);
-      let query = getQuery(supabase, sort, filter);
+      let query = getQuery(supabase, sort, filter, selectedPublications);
 
       query = query.range(
         currentPage * DEFAULT_ARTICLES_PER_PAGE,
@@ -184,20 +269,6 @@ export default function ArticleList({ session }: { session: Session | null }) {
 
       if (data) {
         const newAndOldArticles = [...articles, ...data];
-        // get unique publication names
-        const newlyAppearingPublications = Array.from(
-          new Set(data.map((article) => article.publication)),
-        );
-
-        const newPublications = Array.from(
-          new Set([...newlyAppearingPublications, ...allPublications]),
-        );
-        newPublications.sort();
-
-        // if all publications are selected, then select all new publications
-        if (allPublications.length === selectedPublications.length) {
-          setSelectedPublications(newPublications);
-        }
 
         setArticles(
           newAndOldArticles.filter(
@@ -209,7 +280,6 @@ export default function ArticleList({ session }: { session: Session | null }) {
 
         setCurrentPage(currentPage + 1);
 
-        setAllPublications(newPublications);
         setAllArticles(newAndOldArticles);
       }
     } catch (error) {
@@ -217,20 +287,13 @@ export default function ArticleList({ session }: { session: Session | null }) {
     } finally {
       setLoading(false);
     }
-  }, [
-    supabase,
-    articles,
-    currentPage,
-    filter,
-    sort,
-    allPublications,
-    selectedPublications,
-  ]);
+  }, [supabase, articles, currentPage, filter, sort, selectedPublications]);
 
   useEffect(() => {
+    // added this setArticle as without it we end up duplicating articles.
     setArticles([]);
     setCurrentPage(0);
-  }, [sort, filter]);
+  }, [sort, filter, selectedPublications]);
 
   useEffect(() => {
     if (currentPage === 0) {
@@ -245,26 +308,53 @@ export default function ArticleList({ session }: { session: Session | null }) {
     loadMoreArticles();
   };
 
-  // useEffect(() => {
-  //   const loadMoreTrigger = document.querySelector(".load-more-trigger");
-  //   if (initialLoadDone) {
-  //     if (loadMoreTrigger) {
-  //       const observer = new IntersectionObserver(
-  //         (entries) => {
-  //           if (entries[0].isIntersecting) {
-  //             loadMoreArticles();
-  //           }
-  //         },
-  //         { threshold: 1.0 },
-  //       );
+  const uniqueTagsScope = Array.from(
+    new Set(allArticles.flatMap((article) => article.tags_scope || [])),
+  );
+  const uniqueTagsMood = Array.from(
+    new Set(allArticles.flatMap((article) => article.tags_mood || [])),
+  );
+  const uniqueTagsTopic = Array.from(
+    new Set(allArticles.flatMap((article) => article.tags_topic || [])),
+  );
 
-  //       observer.observe(loadMoreTrigger);
+  useEffect(() => {
+    setArticles(
+      allArticles.filter((article) => {
+        const matchesScope =
+          selectedTagsScope.length === 0 ||
+          selectedTagsScope.some((tag) => article.tags_scope?.includes(tag));
+        const matchesMood =
+          selectedTagsMood.length === 0 ||
+          selectedTagsMood.some((tag) => article.tags_mood?.includes(tag));
+        const matchesTopic =
+          selectedTagsTopic.length === 0 ||
+          selectedTagsTopic.some((tag) => article.tags_topic?.includes(tag));
+        return matchesScope && matchesMood && matchesTopic;
+      }),
+    );
+  }, [selectedTagsScope, selectedTagsMood, selectedTagsTopic, allArticles]);
 
-  //       // Clean up function
-  //       return () => observer.disconnect();
-  //     }
-  //   }
-  // }, [loadMoreArticles]);
+  const handleTagsScopeChange = (event: any) => {
+    const selected = Array.from(event.target.selectedOptions).map(
+      (o: any) => o.value,
+    );
+    setSelectedTagsScope(selected);
+  };
+
+  const handleTagsMoodChange = (event: any) => {
+    const selected = Array.from(event.target.selectedOptions).map(
+      (o: any) => o.value,
+    );
+    setSelectedTagsMood(selected);
+  };
+
+  const handleTagsTopicChange = (event: any) => {
+    const selected = Array.from(event.target.selectedOptions).map(
+      (o: any) => o.value,
+    );
+    setSelectedTagsTopic(selected);
+  };
 
   return (
     <div>
@@ -299,7 +389,41 @@ export default function ArticleList({ session }: { session: Session | null }) {
           Refresh
         </button>
       </div>
-
+      <div className="filters">
+        <select
+          multiple
+          value={selectedTagsScope}
+          onChange={handleTagsScopeChange}
+        >
+          {uniqueTagsScope.map((tag) => (
+            <option key={tag} value={tag}>
+              {tag}
+            </option>
+          ))}
+        </select>
+        <select
+          multiple
+          value={selectedTagsMood}
+          onChange={handleTagsMoodChange}
+        >
+          {uniqueTagsMood.map((tag) => (
+            <option key={tag} value={tag}>
+              {tag}
+            </option>
+          ))}
+        </select>
+        <select
+          multiple
+          value={selectedTagsTopic}
+          onChange={handleTagsTopicChange}
+        >
+          {uniqueTagsTopic.map((tag) => (
+            <option key={tag} value={tag}>
+              {tag}
+            </option>
+          ))}
+        </select>
+      </div>
       <div className="articles-list">
         {articles.map((article) => (
           <ArticleRow
