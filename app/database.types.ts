@@ -139,6 +139,7 @@ export interface Database {
         Row: {
           publication: string;
         };
+        Relationships: [];
       };
     };
     Functions: {

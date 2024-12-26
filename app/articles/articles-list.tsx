@@ -6,51 +6,109 @@ import {
   createClientComponentClient,
   SupabaseClient,
 } from "@supabase/auth-helpers-nextjs";
+import { PostgrestFilterBuilder } from "@supabase/postgrest-js";
 import ArticleRow from "./article-row";
 
 const DEFAULT_ARTICLES_PER_PAGE = 100;
 
-let getQuery = (
-  supabase: SupabaseClient,
-  sort: string,
-  filter: string,
+const SCORE_CUTOFF = -3;
+const TOP_SCORE_DAYS = 5;
+const NEWEST_DAYS = 10;
+
+type FilterType =
+  | "New News"
+  | "Read and Unread News"
+  | "Saved"
+  | "Archived"
+  | "Down"
+  | "Up";
+type SortType = "Top Score" | "Newest";
+
+function useLocalStorage<T>(
+  key: string,
+  initialValue: T,
+): [T, (value: T) => void] {
+  const [storedValue, setStoredValue] = useState<T>(() => {
+    if (typeof window === "undefined") return initialValue;
+    try {
+      const item = localStorage.getItem(key);
+      return item ? JSON.parse(item) : initialValue;
+    } catch (error) {
+      console.error(`Error reading localStorage key "${key}":`, error);
+      return initialValue;
+    }
+  });
+
+  const setValue = useCallback(
+    (value: T) => {
+      try {
+        setStoredValue(value);
+        if (typeof window !== "undefined") {
+          localStorage.setItem(key, JSON.stringify(value));
+        }
+      } catch (error) {
+        console.error(`Error setting localStorage key "${key}":`, error);
+      }
+    },
+    [key],
+  );
+
+  return [storedValue, setValue];
+}
+
+const getQuery = (
+  supabase: SupabaseClient<Database>,
+  sort: SortType,
+  filter: FilterType,
   publicationFilter: string[],
-) => {
+): PostgrestFilterBuilder<
+  Database["public"],
+  Database["public"]["Tables"]["article"]["Row"],
+  Database["public"]["Tables"]["article"]["Row"][],
+  "article"
+> => {
   let query = supabase.from("article").select(`*`);
 
   const cutOff = new Date();
-  cutOff.setDate(cutOff.getDate() - (sort === "Top Score" ? 2 : 5));
+  cutOff.setDate(
+    cutOff.getDate() - (sort === "Top Score" ? TOP_SCORE_DAYS : NEWEST_DAYS),
+  );
 
-  if (filter === "New News") {
-    query = query.eq("archived", false).eq("read", false);
+  // Build query based on filter type
+  switch (filter) {
+    case "New News":
+      query = query.eq("archived", false).eq("read", false);
+      break;
+    case "Read and Unread News":
+      query = query.eq("archived", false);
+      break;
+    case "Saved":
+      query = query.eq("saved", true);
+      break;
+    case "Archived":
+      query = query.eq("archived", true);
+      break;
+    case "Down":
+      query = query.lt("score", 0);
+      break;
+    case "Up":
+      query = query.gt("score", 0);
+      break;
   }
 
-  if (
-    filter !== "Down" &&
-    filter !== "Saved" &&
-    filter !== "Up" &&
-    filter !== "Archived"
-  ) {
-    // show some of the negative scores too - just to see what we are missing out on
-    query = query.gte("score", -6).gte("published_at", cutOff.toISOString());
+  // Apply common filters for non-special cases
+  if (!["Down", "Saved", "Up", "Archived"].includes(filter)) {
+    query = query
+      .gte("score", SCORE_CUTOFF)
+      .gte("published_at", cutOff.toISOString());
   }
 
-  if (filter === "Read and Unread News") {
-    query = query.eq("archived", false);
-  } else if (filter === "Saved") {
-    query = query.eq("saved", true);
-  } else if (filter === "Archived") {
-    query = query.eq("archived", true);
-  } else if (filter === "Down") {
-    query = query.lt("score", 0);
-  } else if (filter === "Up") {
-    query = query.gt("score", 0);
-  }
-
-  if (publicationFilter && publicationFilter.length > 0) {
+  // Apply publication filter
+  if (publicationFilter.length > 0) {
     query = query.in("publication", publicationFilter);
   }
 
+  // Apply sorting
   if (sort === "Top Score") {
     query = query
       .order("score", { ascending: false })
@@ -59,6 +117,7 @@ let getQuery = (
     query = query.order("published_at", { ascending: false });
   }
 
+  // @ts-ignore
   return query;
 };
 
@@ -70,15 +129,27 @@ export default function ArticleList({ session }: { session: Session | null }) {
   const [allArticles, setAllArticles] = useState<Article[]>([]);
   const [articles, setArticles] = useState<Article[]>([]);
   const [allPublications, setAllPublications] = useState<string[]>([]);
-  const [selectedPublications, setSelectedPublications] = useState<string[]>(
-    () => {
-      const saved =
-        typeof window !== "undefined"
-          ? localStorage.getItem("selectedPublications")
-          : null;
-      return saved !== null ? JSON.parse(saved) : [];
-    },
+  const [filter, setFilter] = useLocalStorage<FilterType>(
+    "filter",
+    "Read and Unread News",
   );
+  const [sort, setSort] = useLocalStorage<SortType>("sort", "Top Score");
+  const [selectedPublications, setSelectedPublications] = useLocalStorage<
+    string[]
+  >("selectedPublications", []);
+  const [selectedTagsScope, setSelectedTagsScope] = useLocalStorage<string[]>(
+    "selectedTagsScope",
+    [],
+  );
+  const [selectedTagsMood, setSelectedTagsMood] = useLocalStorage<string[]>(
+    "selectedTagsMood",
+    [],
+  );
+  const [selectedTagsTopic, setSelectedTagsTopic] = useLocalStorage<string[]>(
+    "selectedTagsTopic",
+    [],
+  );
+
   const filters = [
     "New News",
     "Read and Unread News",
@@ -89,39 +160,6 @@ export default function ArticleList({ session }: { session: Session | null }) {
   ];
 
   const sorts = ["Top Score", "Newest"];
-
-  const [filter, setFilter] = useState<string>(() => {
-    const saved =
-      typeof window !== "undefined" ? localStorage.getItem("filter") : null;
-    return saved !== null ? JSON.parse(saved) : filters[1];
-  });
-  const [sort, setSort] = useState<string>(() => {
-    const saved =
-      typeof window !== "undefined" ? localStorage.getItem("sort") : null;
-    return saved !== null ? JSON.parse(saved) : sorts[0];
-  });
-
-  const [selectedTagsScope, setSelectedTagsScope] = useState<string[]>(() => {
-    const saved =
-      typeof window !== "undefined"
-        ? localStorage.getItem("selectedTagsScope")
-        : null;
-    return saved !== null ? JSON.parse(saved) : [];
-  });
-  const [selectedTagsMood, setSelectedTagsMood] = useState<string[]>(() => {
-    const saved =
-      typeof window !== "undefined"
-        ? localStorage.getItem("selectedTagsMood")
-        : null;
-    return saved !== null ? JSON.parse(saved) : [];
-  });
-  const [selectedTagsTopic, setSelectedTagsTopic] = useState<string[]>(() => {
-    const saved =
-      typeof window !== "undefined"
-        ? localStorage.getItem("selectedTagsTopic")
-        : null;
-    return saved !== null ? JSON.parse(saved) : [];
-  });
 
   useEffect(() => {
     const fetchPublications = async () => {
@@ -150,106 +188,15 @@ export default function ArticleList({ session }: { session: Session | null }) {
   }, [supabase]);
 
   useEffect(() => {
-    if (typeof window !== "undefined") {
-      localStorage.setItem("sort", JSON.stringify(sort));
-    }
-  }, [sort]);
-
-  useEffect(() => {
-    if (typeof window !== "undefined") {
-      localStorage.setItem("filter", JSON.stringify(filter));
-    }
-  }, [filter]);
-
-  useEffect(() => {
-    if (typeof window !== "undefined") {
-      localStorage.setItem(
-        "selectedPublications",
-        JSON.stringify(selectedPublications),
-      );
-    }
-  }, [selectedPublications]);
-
-  useEffect(() => {
-    if (typeof window !== "undefined") {
-      localStorage.setItem(
-        "selectedTagsScope",
-        JSON.stringify(selectedTagsScope),
-      );
-    }
-  }, [selectedTagsScope]);
-
-  useEffect(() => {
-    if (typeof window !== "undefined") {
-      localStorage.setItem(
-        "selectedTagsMood",
-        JSON.stringify(selectedTagsMood),
-      );
-    }
-  }, [selectedTagsMood]);
-
-  useEffect(() => {
-    if (typeof window !== "undefined") {
-      localStorage.setItem(
-        "selectedTagsTopic",
-        JSON.stringify(selectedTagsTopic),
-      );
-    }
-  }, [selectedTagsTopic]);
-
-  const handlePublicationChange = (event: any) => {
-    const selected = Array.from(event.target.selectedOptions).map(
-      (o: any) => o.value,
-    );
     setArticles([]);
-    setSelectedPublications(selected);
-    // setArticles(
-    //   allArticles.filter((article) => selected.includes(article.publication)),
-    // );
-  };
+    setCurrentPage(0);
+  }, [sort, filter, selectedPublications]);
 
-  const updateArticle = (updatedArticle: Article) => {
-    setArticles((prevArticles) =>
-      prevArticles
-        .map(
-          (article) =>
-            article.id === updatedArticle.id ? updatedArticle : article,
-          // this filters are not acting as you might expect - but I *think* I like the current
-          // behaviour - will have to come and revisit.
-        )
-        .filter((article) => {
-          if (filter === "New News") {
-            return !article.archived && !article.read;
-          } else if (filter === "Read and Unread News") {
-            // keep the updated article in unless it's been archive
-            return (
-              !article.archived ||
-              (article.id == updatedArticle.id && !article.archived)
-            );
-          } else if (filter === "Saved") {
-            return true;
-          } else if (filter === "Archived") {
-            return true;
-          } else if (filter === "Down") {
-            return article.score < 0;
-          } else if (filter === "Up") {
-            return article.score > 0;
-          } else {
-            return true;
-          }
-        }),
-    );
-  };
-
-  const handleFilterChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    setArticles([]);
-    setFilter(e.target.value);
-  };
-
-  const handleSortChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    setArticles([]);
-    setSort(e.target.value);
-  };
+  useEffect(() => {
+    if (currentPage === 0) {
+      loadMoreArticles();
+    }
+  }, [currentPage]);
 
   const loadMoreArticles = useCallback(async () => {
     try {
@@ -299,18 +246,132 @@ export default function ArticleList({ session }: { session: Session | null }) {
     }
   }, [supabase, articles, currentPage, filter, sort, selectedPublications]);
 
-  useEffect(() => {
-    // added this setArticle as without it we end up duplicating articles.
-    setArticles([]);
-    setCurrentPage(0);
-  }, [sort, filter, selectedPublications]);
+  // Generic handler for multiple select changes
+  const handleMultiSelectChange = useCallback(
+    (setter: (value: string[]) => void) =>
+      (event: React.ChangeEvent<HTMLSelectElement>) => {
+        try {
+          const selected = Array.from(
+            event.target.selectedOptions,
+            (option) => option.value,
+          );
+          setter(selected);
+        } catch (error) {
+          console.error("Error handling multi-select change:", error);
+        }
+      },
+    [],
+  );
 
+  // Handler for filter changes
+  const handleFilterChange = useCallback(
+    (event: React.ChangeEvent<HTMLSelectElement>) => {
+      const newFilter = event.target.value as FilterType;
+      if (!filters.includes(newFilter)) {
+        console.error(`Invalid filter value: ${newFilter}`);
+        return;
+      }
+      setArticles([]);
+      setFilter(newFilter);
+    },
+    [filters],
+  );
+
+  // Handler for sort changes
+  const handleSortChange = useCallback(
+    (event: React.ChangeEvent<HTMLSelectElement>) => {
+      const newSort = event.target.value as SortType;
+      if (!sorts.includes(newSort)) {
+        console.error(`Invalid sort value: ${newSort}`);
+        return;
+      }
+      setArticles([]);
+      setSort(newSort);
+    },
+    [sorts],
+  );
+
+  // Use the generic handler for all multi-select changes
+  const handlePublicationChange = useCallback(
+    (event: React.ChangeEvent<HTMLSelectElement>) => {
+      handleMultiSelectChange(setSelectedPublications)(event);
+      setArticles([]); // Clear articles to trigger reload
+    },
+    [handleMultiSelectChange],
+  );
+
+  const handleTagsScopeChange = useCallback(
+    handleMultiSelectChange(setSelectedTagsScope),
+    [handleMultiSelectChange],
+  );
+
+  const handleTagsMoodChange = useCallback(
+    handleMultiSelectChange(setSelectedTagsMood),
+    [handleMultiSelectChange],
+  );
+
+  const handleTagsTopicChange = useCallback(
+    handleMultiSelectChange(setSelectedTagsTopic),
+    [handleMultiSelectChange],
+  );
+
+  const updateArticle = (updatedArticle: Article) => {
+    setArticles((prevArticles) =>
+      prevArticles
+        .map((article) =>
+          article.id === updatedArticle.id ? updatedArticle : article,
+        )
+        .filter((article) => {
+          if (filter === "New News") {
+            return !article.archived && !article.read;
+          } else if (filter === "Read and Unread News") {
+            // keep the updated article in unless it's been archive
+            return (
+              !article.archived ||
+              (article.id == updatedArticle.id && !article.archived)
+            );
+          } else if (filter === "Saved") {
+            return true;
+          } else if (filter === "Archived") {
+            return true;
+          } else if (filter === "Down") {
+            return article.score < 10;
+          } else if (filter === "Up") {
+            return article.score > -10;
+          } else {
+            return true;
+          }
+        }),
+    );
+  };
+
+  // Optimize tag filtering effect
   useEffect(() => {
-    if (currentPage === 0) {
-      // setArticles([]);
-      loadMoreArticles();
-    }
-  }, [currentPage]); //, initialLoadDone]);
+    const filterArticlesByTags = () => {
+      if (
+        selectedTagsScope.length === 0 &&
+        selectedTagsMood.length === 0 &&
+        selectedTagsTopic.length === 0
+      ) {
+        return allArticles; // No filtering needed
+      }
+
+      return allArticles.filter((article) => {
+        const matchesScope =
+          selectedTagsScope.length === 0 ||
+          selectedTagsScope.some((tag) => article.tags_scope?.includes(tag));
+        const matchesMood =
+          selectedTagsMood.length === 0 ||
+          selectedTagsMood.some((tag) => article.tags_mood?.includes(tag));
+        const matchesTopic =
+          selectedTagsTopic.length === 0 ||
+          selectedTagsTopic.some((tag) => article.tags_topic?.includes(tag));
+        return matchesScope && matchesMood && matchesTopic;
+      });
+    };
+
+    setArticles(filterArticlesByTags());
+  }, [selectedTagsScope, selectedTagsMood, selectedTagsTopic, allArticles]);
 
   const refreshPage = () => {
     setArticles([]);
@@ -327,44 +388,6 @@ export default function ArticleList({ session }: { session: Session | null }) {
   const uniqueTagsTopic = Array.from(
     new Set(allArticles.flatMap((article) => article.tags_topic || [])),
   );
-
-  useEffect(() => {
-    setArticles(
-      allArticles.filter((article) => {
-        const matchesScope =
-          selectedTagsScope.length === 0 ||
-          selectedTagsScope.some((tag) => article.tags_scope?.includes(tag));
-        const matchesMood =
-          selectedTagsMood.length === 0 ||
-          selectedTagsMood.some((tag) => article.tags_mood?.includes(tag));
-        const matchesTopic =
-          selectedTagsTopic.length === 0 ||
-          selectedTagsTopic.some((tag) => article.tags_topic?.includes(tag));
-        return matchesScope && matchesMood && matchesTopic;
-      }),
-    );
-  }, [selectedTagsScope, selectedTagsMood, selectedTagsTopic, allArticles]);
-
-  const handleTagsScopeChange = (event: any) => {
-    const selected = Array.from(event.target.selectedOptions).map(
-      (o: any) => o.value,
-    );
-    setSelectedTagsScope(selected);
-  };
-
-  const handleTagsMoodChange = (event: any) => {
-    const selected = Array.from(event.target.selectedOptions).map(
-      (o: any) => o.value,
-    );
-    setSelectedTagsMood(selected);
-  };
-
-  const handleTagsTopicChange = (event: any) => {
-    const selected = Array.from(event.target.selectedOptions).map(
-      (o: any) => o.value,
-    );
-    setSelectedTagsTopic(selected);
-  };
 
   return (
     <div>
