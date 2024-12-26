@@ -23,6 +23,61 @@ export default function ArticleRow({ article, onUpdate }: Props) {
     options,
   );
 
+  const SCORE_VALUES = [-10, -7, -4, 0, 4, 7, 10];
+
+  const getNextScore = (
+    currentScore: number,
+    direction: "up" | "down",
+  ): number => {
+    const currentIndex = SCORE_VALUES.indexOf(currentScore);
+    let nextIndex;
+    let adjustFurther = true;
+    if (currentIndex === -1) {
+      // If current score isn't in our values, find the closest one
+      const closestValue = SCORE_VALUES.reduce((prev, curr) =>
+        Math.abs(curr - currentScore) < Math.abs(prev - currentScore)
+          ? curr
+          : prev,
+      );
+      nextIndex = SCORE_VALUES.indexOf(closestValue);
+      if (closestValue > currentScore && direction === "up") {
+        adjustFurther = false;
+      } else if (closestValue < currentScore && direction === "down") {
+        adjustFurther = false;
+      }
+    } else {
+      nextIndex = currentIndex;
+    }
+
+    if (adjustFurther) {
+      if (direction === "up") {
+        nextIndex = Math.min(nextIndex + 1, SCORE_VALUES.length - 1);
+      } else {
+        nextIndex = Math.max(nextIndex - 1, 0);
+      }
+    }
+
+    return SCORE_VALUES[nextIndex];
+  };
+
+  const updateArticleScore = async (direction: "up" | "down") => {
+    const newScore = getNextScore(article.score, direction);
+
+    const { error } = await supabase
+      .from("article")
+      .update({ score: newScore, agent: "USER" })
+      .eq("id", article.id);
+
+    if (error === null) {
+      article.score = newScore;
+      article.agent = "USER";
+      onUpdate(article);
+    }
+  };
+
+  const handleThumbsUp = () => updateArticleScore("up");
+  const handleThumbsDown = () => updateArticleScore("down");
+
   const handleArticleClick = async (e: React.MouseEvent) => {
     e.preventDefault();
     window.open(article.link, "_blank", "noopener,noreferrer");
@@ -36,32 +91,6 @@ export default function ArticleRow({ article, onUpdate }: Props) {
         article.read = true;
         onUpdate(article);
       }
-    }
-  };
-
-  const handleThumbsUp = async () => {
-    const newScore = article.score >= 0 ? 10 : 0;
-    const { error } = await supabase
-      .from("article")
-      .update({ score: newScore, agent: "USER" })
-      .eq("id", article.id);
-    if (error === null) {
-      article.score = newScore;
-      article.agent = "USER";
-      onUpdate(article);
-    }
-  };
-
-  const handleThumbsDown = async () => {
-    const newScore = article.score <= 0 ? -10 : 0;
-    const { error } = await supabase
-      .from("article")
-      .update({ score: newScore, agent: "USER" })
-      .eq("id", article.id);
-    if (error === null) {
-      article.score = newScore;
-      article.agent = "USER";
-      onUpdate(article);
     }
   };
 

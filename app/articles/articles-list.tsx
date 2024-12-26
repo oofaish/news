@@ -231,9 +231,9 @@ export default function ArticleList({ session }: { session: Session | null }) {
           } else if (filter === "Archived") {
             return true;
           } else if (filter === "Down") {
-            return article.score < 10;
+            return article.score < 0;
           } else if (filter === "Up") {
-            return article.score > -10;
+            return article.score > 0;
           } else {
             return true;
           }
@@ -268,7 +268,17 @@ export default function ArticleList({ session }: { session: Session | null }) {
       }
 
       if (data) {
-        const newAndOldArticles = [...articles, ...data];
+        // Create a map of existing article IDs to avoid duplicates
+        const existingArticleIds = new Set(
+          articles.map((article) => article.id),
+        );
+
+        // Filter out any articles that we already have
+        const newArticles = data.filter(
+          (article) => !existingArticleIds.has(article.id),
+        );
+
+        const newAndOldArticles = [...articles, ...newArticles];
 
         setArticles(
           newAndOldArticles.filter(
