@@ -161,6 +161,7 @@ export default function ArticleList({ session }: { session: Session | null }) {
 
   const sorts = ["Top Score", "Newest"];
 
+  // Fetch publications on mount
   useEffect(() => {
     const fetchPublications = async () => {
       try {
@@ -185,66 +186,124 @@ export default function ArticleList({ session }: { session: Session | null }) {
     };
 
     fetchPublications();
-  }, [supabase]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
+  // Fetch articles when filter/sort/publications change
   useEffect(() => {
-    setArticles([]);
-    setCurrentPage(0);
+    const loadInitialArticles = async () => {
+      setLoading(true);
+      setCurrentPage(0);
+
+      try {
+        let query = getQuery(supabase, sort, filter, selectedPublications);
+        query = query.range(0, DEFAULT_ARTICLES_PER_PAGE - 1);
+
+        const { data, error, status } = await query;
+
+        if (error && status !== 406) {
+          throw error;
+        }
+
+        if (data) {
+          const uniqueArticles = removeDuplicateArticles(data);
+          setAllArticles(uniqueArticles);
+        }
+      } catch (error) {
+        console.error("Error loading articles:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadInitialArticles();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sort, filter, selectedPublications]);
 
+  // Function to remove duplicates based on article ID
+  const removeDuplicateArticles = (articles: Article[]) => {
+    const uniqueArticlesMap = new Map();
+    articles.forEach((article) => {
+      uniqueArticlesMap.set(article.id, article);
+    });
+    return Array.from(uniqueArticlesMap.values());
+  };
+
+  // Load more articles when currentPage changes (excluding the first page)
   useEffect(() => {
-    if (currentPage === 0) {
-      loadMoreArticles();
-    }
+    if (currentPage === 0) return;
+
+    const loadMoreArticles = async () => {
+      setLoading(true);
+
+      try {
+        let query = getQuery(supabase, sort, filter, selectedPublications);
+
+        const from = currentPage * DEFAULT_ARTICLES_PER_PAGE;
+        const to = from + DEFAULT_ARTICLES_PER_PAGE - 1;
+        query = query.range(from, to);
+
+        const { data, error, status } = await query;
+
+        if (error && status !== 406) {
+          throw error;
+        }
+
+        if (data) {
+          const uniqueArticles = removeDuplicateArticles([...allArticles, ...data]);
+          setAllArticles(uniqueArticles);
+        }
+      } catch (error) {
+        console.error("Error loading more articles:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadMoreArticles();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentPage]);
 
-  const loadMoreArticles = useCallback(async () => {
-    try {
-      setLoading(true);
-      let query = getQuery(supabase, sort, filter, selectedPublications);
+  // Filter articles by tags whenever allArticles or tags change
+  useEffect(() => {
+    const filtered = filterArticlesByTags();
+    setArticles(filtered);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [allArticles, selectedTagsScope, selectedTagsMood, selectedTagsTopic]);
 
-      query = query.range(
-        currentPage * DEFAULT_ARTICLES_PER_PAGE,
-        (currentPage + 1) * DEFAULT_ARTICLES_PER_PAGE - 1,
-      );
-
-      let { data, error, status } = await query;
-
-      if (error && status !== 406) {
-        throw error;
-      }
-
-      if (data) {
-        // Create a map of existing article IDs to avoid duplicates
-        const existingArticleIds = new Set(
-          articles.map((article) => article.id),
-        );
-
-        // Filter out any articles that we already have
-        const newArticles = data.filter(
-          (article) => !existingArticleIds.has(article.id),
-        );
-
-        const newAndOldArticles = [...articles, ...newArticles];
-
-        setArticles(
-          newAndOldArticles.filter(
-            (article) =>
-              selectedPublications.length == 0 ||
-              selectedPublications.includes(article.publication),
-          ),
-        );
-
-        setCurrentPage(currentPage + 1);
-
-        setAllArticles(newAndOldArticles);
-      }
-    } catch (error) {
-      console.error("Error loading more articles:", error);
-    } finally {
-      setLoading(false);
+  const filterArticlesByTags = useCallback(() => {
+    if (
+      selectedTagsScope.length === 0 &&
+      selectedTagsMood.length === 0 &&
+      selectedTagsTopic.length === 0
+    ) {
+      return allArticles;
     }
-  }, [supabase, articles, currentPage, filter, sort, selectedPublications]);
+
+    return allArticles.filter((article) => {
+      const matchesScope =
+        selectedTagsScope.length === 0 ||
+        selectedTagsScope.some((tag) => article.tags_scope?.includes(tag));
+      const matchesMood =
+        selectedTagsMood.length === 0 ||
+        selectedTagsMood.some((tag) => article.tags_mood?.includes(tag));
+      const matchesTopic =
+        selectedTagsTopic.length === 0 ||
+        selectedTagsTopic.some((tag) => article.tags_topic?.includes(tag));
+      return matchesScope && matchesMood && matchesTopic;
+    });
+  }, [selectedTagsScope, selectedTagsMood, selectedTagsTopic, allArticles]);
+
+  const handlePublicationChange = useCallback(
+    (event: React.ChangeEvent<HTMLSelectElement>) => {
+      const selected = Array.from(
+        event.target.selectedOptions,
+        (option) => option.value,
+      );
+      setSelectedPublications(selected);
+    },
+    [setSelectedPublications],
+  );
 
   // Generic handler for multiple select changes
   const handleMultiSelectChange = useCallback(
@@ -271,10 +330,9 @@ export default function ArticleList({ session }: { session: Session | null }) {
         console.error(`Invalid filter value: ${newFilter}`);
         return;
       }
-      setArticles([]);
       setFilter(newFilter);
     },
-    [filters],
+    [filters, setFilter],
   );
 
   // Handler for sort changes
@@ -285,34 +343,24 @@ export default function ArticleList({ session }: { session: Session | null }) {
         console.error(`Invalid sort value: ${newSort}`);
         return;
       }
-      setArticles([]);
       setSort(newSort);
     },
-    [sorts],
-  );
-
-  // Use the generic handler for all multi-select changes
-  const handlePublicationChange = useCallback(
-    (event: React.ChangeEvent<HTMLSelectElement>) => {
-      handleMultiSelectChange(setSelectedPublications)(event);
-      setArticles([]); // Clear articles to trigger reload
-    },
-    [handleMultiSelectChange],
+    [sorts, setSort],
   );
 
   const handleTagsScopeChange = useCallback(
     handleMultiSelectChange(setSelectedTagsScope),
-    [handleMultiSelectChange],
+    [handleMultiSelectChange, setSelectedTagsScope],
   );
 
   const handleTagsMoodChange = useCallback(
     handleMultiSelectChange(setSelectedTagsMood),
-    [handleMultiSelectChange],
+    [handleMultiSelectChange, setSelectedTagsMood],
   );
 
   const handleTagsTopicChange = useCallback(
     handleMultiSelectChange(setSelectedTagsTopic),
-    [handleMultiSelectChange],
+    [handleMultiSelectChange, setSelectedTagsTopic],
   );
 
   const updateArticle = (updatedArticle: Article) => {
@@ -325,19 +373,16 @@ export default function ArticleList({ session }: { session: Session | null }) {
           if (filter === "New News") {
             return !article.archived && !article.read;
           } else if (filter === "Read and Unread News") {
-            // keep the updated article in unless it's been archive
-            return (
-              !article.archived ||
-              (article.id == updatedArticle.id && !article.archived)
-            );
+            // keep the updated article in unless it's been archived
+            return !article.archived;
           } else if (filter === "Saved") {
             return true;
           } else if (filter === "Archived") {
             return true;
           } else if (filter === "Down") {
-            return article.score < 10;
+            return article.score < 0;
           } else if (filter === "Up") {
-            return article.score > -10;
+            return article.score > 0;
           } else {
             return true;
           }
@@ -345,38 +390,10 @@ export default function ArticleList({ session }: { session: Session | null }) {
     );
   };
 
-  // Optimize tag filtering effect
-  useEffect(() => {
-    const filterArticlesByTags = () => {
-      if (
-        selectedTagsScope.length === 0 &&
-        selectedTagsMood.length === 0 &&
-        selectedTagsTopic.length === 0
-      ) {
-        return allArticles; // No filtering needed
-      }
-
-      return allArticles.filter((article) => {
-        const matchesScope =
-          selectedTagsScope.length === 0 ||
-          selectedTagsScope.some((tag) => article.tags_scope?.includes(tag));
-        const matchesMood =
-          selectedTagsMood.length === 0 ||
-          selectedTagsMood.some((tag) => article.tags_mood?.includes(tag));
-        const matchesTopic =
-          selectedTagsTopic.length === 0 ||
-          selectedTagsTopic.some((tag) => article.tags_topic?.includes(tag));
-        return matchesScope && matchesMood && matchesTopic;
-      });
-    };
-
-    setArticles(filterArticlesByTags());
-  }, [selectedTagsScope, selectedTagsMood, selectedTagsTopic, allArticles]);
-
   const refreshPage = () => {
-    setArticles([]);
-    setCurrentPage(0);
-    loadMoreArticles();
+    setSelectedTagsScope([]);
+    setSelectedTagsMood([]);
+    setSelectedTagsTopic([]);
   };
 
   const uniqueTagsScope = Array.from(
@@ -393,16 +410,16 @@ export default function ArticleList({ session }: { session: Session | null }) {
     <div>
       <div className="flex-container">
         <select onChange={handleFilterChange} value={filter}>
-          {filters.map((filter) => (
-            <option key={filter} value={filter}>
-              {filter}
+          {filters.map((filterOption) => (
+            <option key={filterOption} value={filterOption}>
+              {filterOption}
             </option>
           ))}
         </select>
         <select onChange={handleSortChange} value={sort}>
-          {sorts.map((sort) => (
-            <option key={sort} value={sort}>
-              {sort}
+          {sorts.map((sortOption) => (
+            <option key={sortOption} value={sortOption}>
+              {sortOption}
             </option>
           ))}
         </select>
@@ -434,11 +451,7 @@ export default function ArticleList({ session }: { session: Session | null }) {
             </option>
           ))}
         </select>
-        <select
-          multiple
-          value={selectedTagsMood}
-          onChange={handleTagsMoodChange}
-        >
+        <select multiple value={selectedTagsMood} onChange={handleTagsMoodChange}>
           {uniqueTagsMood.map((tag) => (
             <option key={tag} value={tag}>
               {tag}
@@ -467,7 +480,12 @@ export default function ArticleList({ session }: { session: Session | null }) {
         ))}
       </div>
       <div>
-        <button onClick={loadMoreArticles} disabled={loading}>
+        <button
+          onClick={() => {
+            setCurrentPage((prevPage) => prevPage + 1);
+          }}
+          disabled={loading}
+        >
           {loading ? "Loading..." : "Load More"}
         </button>
         <form action="/auth/signout" method="post">
@@ -476,7 +494,6 @@ export default function ArticleList({ session }: { session: Session | null }) {
           </button>
         </form>
       </div>
-      {/* <div className="load-more-trigger"></div> */}
     </div>
   );
 }

@@ -29,35 +29,14 @@ export default function ArticleRow({ article, onUpdate }: Props) {
     currentScore: number,
     direction: "up" | "down",
   ): number => {
-    const currentIndex = SCORE_VALUES.indexOf(currentScore);
-    let nextIndex;
-    let adjustFurther = true;
-    if (currentIndex === -1) {
-      // If current score isn't in our values, find the closest one
-      const closestValue = SCORE_VALUES.reduce((prev, curr) =>
-        Math.abs(curr - currentScore) < Math.abs(prev - currentScore)
-          ? curr
-          : prev,
-      );
-      nextIndex = SCORE_VALUES.indexOf(closestValue);
-      if (closestValue > currentScore && direction === "up") {
-        adjustFurther = false;
-      } else if (closestValue < currentScore && direction === "down") {
-        adjustFurther = false;
-      }
+    // Find the next appropriate score
+    if (direction === "up") {
+      // Find the smallest score that's greater than current score
+      return SCORE_VALUES.find(score => score > currentScore) ?? SCORE_VALUES[SCORE_VALUES.length - 1];
     } else {
-      nextIndex = currentIndex;
+      // Find the largest score that's smaller than current score
+      return SCORE_VALUES.findLast(score => score < currentScore) ?? SCORE_VALUES[0];
     }
-
-    if (adjustFurther) {
-      if (direction === "up") {
-        nextIndex = Math.min(nextIndex + 1, SCORE_VALUES.length - 1);
-      } else {
-        nextIndex = Math.max(nextIndex - 1, 0);
-      }
-    }
-
-    return SCORE_VALUES[nextIndex];
   };
 
   const updateArticleScore = async (direction: "up" | "down") => {
