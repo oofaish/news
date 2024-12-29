@@ -9,15 +9,16 @@ import {
 import { PostgrestFilterBuilder } from "@supabase/postgrest-js";
 import ArticleRow from "./article-row";
 
-const DEFAULT_ARTICLES_PER_PAGE = 100;
+const DEFAULT_ARTICLES_PER_PAGE = 50;
 
 const SCORE_CUTOFF = -3;
-const TOP_SCORE_DAYS = 5;
-const NEWEST_DAYS = 10;
+const TOP_SCORE_DAYS = 30;
+const NEWEST_DAYS = 90;
 
 type FilterType =
   | "New News"
   | "Read and Unread News"
+  | "All Unarchived"
   | "Saved"
   | "Archived"
   | "Down"
@@ -82,6 +83,9 @@ const getQuery = (
     case "Read and Unread News":
       query = query.eq("archived", false);
       break;
+    case "All Unarchived":
+      query = query.eq("archived", false);
+      break;
     case "Saved":
       query = query.eq("saved", true);
       break;
@@ -96,8 +100,8 @@ const getQuery = (
       break;
   }
 
-  // Apply common filters for non-special cases
-  if (!["Down", "Saved", "Up", "Archived"].includes(filter)) {
+  // Apply common filters for time-sensitive news
+  if (["New News", "Read and Unread News"].includes(filter)) {
     query = query
       .gte("score", SCORE_CUTOFF)
       .gte("published_at", cutOff.toISOString());
@@ -149,6 +153,7 @@ export default function ArticleList({ session }: { session: Session | null }) {
     "selectedTagsTopic",
     [],
   );
+  const [refreshCounter, setRefreshCounter] = useState(0);
 
   const filters = [
     "New News",
@@ -189,7 +194,7 @@ export default function ArticleList({ session }: { session: Session | null }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Fetch articles when filter/sort/publications change
+  // Fetch articles when filter/sort/publications/refreshCounter change
   useEffect(() => {
     const loadInitialArticles = async () => {
       setLoading(true);
@@ -218,7 +223,7 @@ export default function ArticleList({ session }: { session: Session | null }) {
 
     loadInitialArticles();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sort, filter, selectedPublications]);
+  }, [sort, filter, selectedPublications, refreshCounter]);
 
   // Function to remove duplicates based on article ID
   const removeDuplicateArticles = (articles: Article[]) => {
@@ -372,7 +377,7 @@ export default function ArticleList({ session }: { session: Session | null }) {
         .filter((article) => {
           if (filter === "New News") {
             return !article.archived && !article.read;
-          } else if (filter === "Read and Unread News") {
+          } else if (filter === "Read and Unread News" || filter == "All Unarchived") {
             // keep the updated article in unless it's been archived
             return !article.archived;
           } else if (filter === "Saved") {
@@ -391,9 +396,11 @@ export default function ArticleList({ session }: { session: Session | null }) {
   };
 
   const refreshPage = () => {
-    setSelectedTagsScope([]);
-    setSelectedTagsMood([]);
-    setSelectedTagsTopic([]);
+    if (currentPage > 0) {
+      setCurrentPage(0);
+    } else {
+      setRefreshCounter((prev) => prev + 1);
+    }
   };
 
   const uniqueTagsScope = Array.from(
