@@ -155,9 +155,10 @@ export default function ArticleList({ session }: { session: Session | null }) {
   );
   const [refreshCounter, setRefreshCounter] = useState(0);
 
-  const filters = [
+  const filters: FilterType[] = [
     "New News",
     "Read and Unread News",
+    "All Unarchived",
     "Saved",
     "Archived",
     "Down",
